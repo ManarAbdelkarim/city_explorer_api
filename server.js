@@ -1,31 +1,40 @@
 'use strict';
 
-// Load Environment Variables from the .env file
+
 require('dotenv').config();
 
-// Application Dependencies
 const express = require('express');
 const cors = require('cors');
 
-// Application Setup
-// const PORT = process.env.PORT;
-const PORT = process.env.PORT || 3000;
+
+const PORT = process.env.PORT || 5001;
 
 const app = express();
 app.use(cors());
 
-// routes
+
 app.get('/location', handelLocationRequest);
 app.get('/weather', handelWeatherRequest);
 function handelLocationRequest(req, res) {
 
-  const searchQuery = req.query;
+  let searchQuery = req.query;
+  searchQuery = Object.values(searchQuery);
   console.log(searchQuery);
 
   const locationsRawData = require('./data/location.json');
   const location = new Location(locationsRawData[0])
-  res.send(location);
+  if (searchQuery[0] === location.search_query ) {
+
+    res.send(location);
+
+  }
+  else{
+    res.status(500).send('Status 500: Sorry, something went wrong');
+  }
+
+
 }
+
 
 function handelWeatherRequest(req, res) {
   const weatherRawData = require('./data/weather.json');
@@ -41,10 +50,8 @@ function handelWeatherRequest(req, res) {
 
 
 
-
-// constructors
-
 function Location(data) {
+  this.search_query = data.display_name.split(',')[0].toLowerCase();
   this.formatted_query = data.display_name;
   this.latitude = data.lat;
   this.longitude = data.lon;
