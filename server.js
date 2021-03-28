@@ -23,7 +23,7 @@ function handelLocationRequest(req, res) {
 
   const locationsRawData = require('./data/location.json');
   const location = new Location(locationsRawData[0])
-  if (searchQuery[0] === location.search_query ) {
+  if (searchQuery[0].includes(location.search_query)) {
 
     res.send(location);
 
