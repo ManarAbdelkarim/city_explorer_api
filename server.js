@@ -16,27 +16,24 @@ app.use(cors());
 app.get('/location', handelLocationRequest);
 app.get('/restaurants', handelRestaurantRequest);
 const PORT = process.env.PORT || 3000;
-
-
-
 function handelLocationRequest(req, res) {
 
   const searchQuery = req.query;
   console.log(searchQuery);
 
-  const locationsRawData = require('./public/starter-code/data/location.json');
+  const locationsRawData = require('./data/location.json');
   const location = new Location(locationsRawData[0])
   res.send(location);
 }
 function handelRestaurantRequest(req, res) {
-  const restaurantsRawData = require('./data/restaurants.json');
-  const restaurantsData = [];
+  const restaurantsRawData = require('./data/weather.json');
+  const weatherData = [];
 
   restaurantsRawData.nearby_restaurants.forEach(restaurant => {
-    restaurantsData.push(new Restaurant(restaurant));
+    weatherData.push(new Restaurant(restaurant));
   });
 
-  res.send(restaurantsData);
+  res.send(weatherData);
 
 }
 
