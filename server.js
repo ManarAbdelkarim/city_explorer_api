@@ -9,36 +9,38 @@ const cors = require('cors');
 
 // Application Setup
 // const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
+
 const app = express();
 app.use(cors());
 
 // routes
 app.get('/location', handelLocationRequest);
-app.get('/restaurants', handelRestaurantRequest);
-const PORT = process.env.PORT || 3000;
-
-
-
+app.get('/weather', handelWeatherRequest);
 function handelLocationRequest(req, res) {
 
   const searchQuery = req.query;
   console.log(searchQuery);
 
-  const locationsRawData = require('./public/starter-code/data/location.json');
+  const locationsRawData = require('./data/location.json');
   const location = new Location(locationsRawData[0])
   res.send(location);
 }
-function handelRestaurantRequest(req, res) {
-  const restaurantsRawData = require('./data/restaurants.json');
-  const restaurantsData = [];
 
-  restaurantsRawData.nearby_restaurants.forEach(restaurant => {
-    restaurantsData.push(new Restaurant(restaurant));
+function handelWeatherRequest(req, res) {
+  const weatherRawData = require('./data/weather.json');
+  const weatherData = [];
+
+  weatherRawData.data.forEach(weather => {
+    weatherData.push(new Weather(weather));
   });
 
-  res.send(restaurantsData);
+  res.send(weatherData);
 
 }
+
+
+
 
 // constructors
 
@@ -48,10 +50,9 @@ function Location(data) {
   this.longitude = data.lon;
 }
 
-function Restaurant(data) {
-  this.restaurant = data.restaurant.name;
-  this.cuisines = data.restaurant.cuisines;
-  this.locality = data.restaurant.location.locality;
+function Weather(data) {
+  this.forecast = data.weather.description;
+  this.valid_date = data.valid_date;
 }
 
 app.use('*', (req, res) => {
