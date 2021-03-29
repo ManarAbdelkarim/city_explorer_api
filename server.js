@@ -15,8 +15,8 @@ const app = express();
 app.use(cors());
 
 
-app.get('/location', locationRoute);
-function locationRoute(req, res) {
+app.get('/location', handelLocationRequest);
+function handelLocationRequest(req, res) {
   // const locData = require('./data/location.json');
   const cityName = req.query.city;
   let key = process.env.GEO_CODE_API_KEY;
@@ -31,8 +31,8 @@ function locationRoute(req, res) {
     })
 }
 
-app.get('/weather', weatherRoute);
-function weatherRoute(req, res) {
+app.get('/weather', handelWeatherRequest);
+function handelWeatherRequest(req, res) {
   let city = req.query.search_query;
   let key = process.env.WEATHER_CODE_API_KEY;
   let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${key}`;
@@ -48,8 +48,8 @@ function weatherRoute(req, res) {
 }
 
 
-app.get('/parks', parksRoute);
-function parksRoute(req, res) {
+app.get('/parks', HandleParkRequest);
+function HandleParkRequest(req, res) {
   console.log(req.query);
   let code = req.query.latitude + ',' + req.query.longitude;
   let key = process.env.PARK_CODE_API_KEY;
