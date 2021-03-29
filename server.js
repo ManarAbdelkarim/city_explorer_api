@@ -1,4 +1,4 @@
-'use strict';;
+'use strict';
 // Dependencies
 const express = require('express');
 const cors = require('cors');
@@ -34,11 +34,10 @@ const handelWeatherRequest = (req, res) => {
   let city = req.query.search_query;
   let key = process.env.WEATHER_CODE_API_KEY;
   let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${key}`;
-  superAgent.get(url)
-    .then(weather => {
-      let weatherArr = weather.body.data.map(val => new Weather(val));
-      res.send(weatherArr);
-    })
+  superAgent.get(url).then(weather => {
+    let weatherArr = weather.body.data.map(val => new Weather(val));
+    res.send(weatherArr);
+  })
     .catch((error) => {
       console.error('ERROR',error);
       req.status(500).send('no weather ya boy');
