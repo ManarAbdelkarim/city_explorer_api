@@ -1,23 +1,20 @@
-'use strict';
-
-// Application Dependencies
+'use strict';;
+// Dependencies
 const express = require('express');
-//CORS = Cross Origin Resource Sharing
 const cors = require('cors');
-//DOTENV (read our enviroment variable)
 require('dotenv').config();
 const superAgent = require('superagent');
 
 
-//Application Setup
+// Setup
 const PORT = process.env.PORT || 3030;
 const app = express();
 app.use(cors());
 
 
 app.get('/location', handelLocationRequest);
-function handelLocationRequest(req, res) {
-  // const locData = require('./data/location.json');
+
+const handelLocationRequest = (req, res) => {
   const cityName = req.query.city;
   let key = process.env.GEO_CODE_API_KEY;
   let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
@@ -29,10 +26,11 @@ function handelLocationRequest(req, res) {
       console.error('ERROR',error);
       req.status(500).send('no Location ya boy');
     })
-}
+};
 
 app.get('/weather', handelWeatherRequest);
-function handelWeatherRequest(req, res) {
+
+const handelWeatherRequest = (req, res) => {
   let city = req.query.search_query;
   let key = process.env.WEATHER_CODE_API_KEY;
   let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${key}`;
@@ -45,11 +43,12 @@ function handelWeatherRequest(req, res) {
       console.error('ERROR',error);
       req.status(500).send('no weather ya boy');
     })
-}
+};
 
 
 app.get('/parks', HandleParkRequest);
-function HandleParkRequest(req, res) {
+
+const HandleParkRequest = (req, res) => {
   console.log(req.query);
   let code = req.query.latitude + ',' + req.query.longitude;
   let key = process.env.PARK_CODE_API_KEY;
@@ -61,7 +60,7 @@ function HandleParkRequest(req, res) {
     console.error('ERROR',error);
     req.status(500).send('no parks ya boy');
   })
-}
+};
 
 
 
