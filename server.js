@@ -5,35 +5,38 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
-
-
 const PORT = process.env.PORT || 5001;
 
 const app = express();
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({
+  extended: true
+}));
 
 
 app.get('/location', handelLocationRequest);
 app.get('/weather', handelWeatherRequest);
 function handelLocationRequest(req, res) {
-
-  let searchQuery = req.query;
-  searchQuery = Object.values(searchQuery);
+  let searchQuery = req.query.city;
+  // searchQuery = Object.values(searchQuery);
   console.log(searchQuery);
 
   const locationsRawData = require('./data/location.json');
-  const location = new Location(locationsRawData[0])
-  if (searchQuery[0].includes(location.search_query)) {
+  const location = new Location(locationsRawData[0], searchQuery)
+  // console.log('this is the location search_query' , location.search_query);
+  if (!searchQuery) {
 
-    res.send(location);
+    res.status(500).send('Status 500: Sorry, something went wrong');
 
   }
   else{
-    res.status(500).send('Status 500: Sorry, something went wrong');
+    res.send(location);
   }
 
 
 }
+
 
 
 function handelWeatherRequest(req, res) {
@@ -50,8 +53,9 @@ function handelWeatherRequest(req, res) {
 
 
 
-function Location(data) {
-  this.search_query = data.display_name.split(',')[0].toLowerCase();
+function Location(data ,searchQuery) {
+  // this.search_query = data.display_name.split(',')[0].toLowerCase();
+  this.search_query = searchQuery.city;
   this.formatted_query = data.display_name;
   this.latitude = data.lat;
   this.longitude = data.lon;
