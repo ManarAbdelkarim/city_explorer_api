@@ -1,81 +1,72 @@
 'use strict';
-require('dotenv').config();
-// Dependencies
-const express = require('express');
-const cors = require('cors');
-const superAgent = require('superagent');
-// const { response } = require('express');
 
-// Setup
-const PORT = process.env.PORT || 3001;
-const GEO_CODE_API_KEY = process.env.GEO_CODE_API_KEY ;
-const WEATHER_CODE_API_KEY = process.env.WEATHER_CODE_API_KEY || 'e31b607f78b54ff1beb1b740fe25d00b' ;
-const PARK_CODE_API_KEY = process.env.PARK_CODE_API_KEY;
+// Application Dependencies
+const express = require('express');
+//CORS = Cross Origin Resource Sharing
+const cors = require('cors');
+//DOTENV (read our enviroment variable)
+require('dotenv').config();
+const superAgent = require('superagent');
+
+
+//Application Setup
+const PORT = process.env.PORT || 3030;
 const app = express();
 app.use(cors());
 
 
+app.get('/location', locationRoute);
+function locationRoute(req, res) {
+  // const locData = require('./data/location.json');
+  const cityName = req.query.city;
+  let key = process.env.GEO_CODE_API_KEY;
+  let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${cityName}&format=json`;
+  superAgent.get(url)
+    .then(location => {
+      const locObj = new Location(cityName, location.body[0]);
+      res.send(locObj);
+    }).catch((error) => {
+      console.error('ERROR',error);
+      req.status(500).send('no Location ya boy');
+    })
+}
 
-// app.use(express.json());
-// app.use(express.urlencoded({
-//   extended: true
-// }));
-
-
-
-app.get('/location', handelLocationRequest);
-const handelLocationRequest = (req, res) => {
-  let city = req.query.city;
-  let url = `https://eu1.locationiq.com/v1/search.php?key=${GEO_CODE_API_KEY}&q=${city}&format=json`;
-  superAgent.get(url).then(data => {
-    res.send(new Location( city , data.body[0]));
-  }).catch((error) => {
-    console.error('ERROR',error);
-    req.status(500).send('no Location ya boy');
-  });
-};
-
-
-
-
-app.get('/weather', handelWeatherRequest);
-const handelWeatherRequest = (req, res) => {
+app.get('/weather', weatherRoute);
+function weatherRoute(req, res) {
   let city = req.query.search_query;
-  let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${WEATHER_CODE_API_KEY}`;
-  // console.lon(url);
-  superAgent.get(url).then(weatherData =>{
-    let weatherArr = weatherData.body.data.map(weather => {
-      weatherArr.push(new Weather(weather));
-    });
-    res.send(weatherArr);
-  }).catch((error) => {
-    console.error('ERROR',error);
-    req.status(500).send('no weather ya boy');
-  });
+  let key = process.env.WEATHER_CODE_API_KEY;
+  let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${key}`;
+  superAgent.get(url)
+    .then(weather => {
+      let weatherArr = weather.body.data.map(val => new Weather(val));
+      res.send(weatherArr);
+    })
+    .catch((error) => {
+      console.error('ERROR',error);
+      req.status(500).send('no weather ya boy');
+    })
+}
 
-};
 
-app.get('/parks', HandleParkRequest);
-const HandleParkRequest = (req, res) => {
-  // console.log(req.query);
+app.get('/parks', parksRoute);
+function parksRoute(req, res) {
+  console.log(req.query);
   let code = req.query.latitude + ',' + req.query.longitude;
-  // const url = `https://developer.nps.gov/api/v1/parks?q=${city.formatted_query}&limit=10&api_key=${key}`;
-  const url = `https://developer.nps.gov/api/v1/parks?parkCode=${code}&api_key=${PARK_CODE_API_KEY}`;
-  // console.log('url', url);
-  superAgent.get(url).then(parksData=>{
-    let resArr = parksData.body.data.map(park => {
-      return new Park (park.fullName,park.addresses[0].city,park.entranceFees[0].cost,park.description,park.url);
-    });
-    res.send(resArr);
+  let key = process.env.PARK_CODE_API_KEY;
+  let url = `https://developer.nps.gov/api/v1/parks?parkCode=${code}&api_key=${key}`;
+  superAgent.get(url).then(parkData => {
+    let parkArr = parkData.body.data.map(val => new Park(val));
+    res.send(parkArr);
   }).catch((error) => {
     console.error('ERROR',error);
     req.status(500).send('no parks ya boy');
-  });
-};
+  })
+}
 
 
 
-function Location(city , data ) {
+
+function Location(city, data) {
   this.search_query = city;
   this.formatted_query = data.display_name;
   this.latitude = data.lat;
@@ -84,14 +75,13 @@ function Location(city , data ) {
 
 function Weather(data) {
   this.forecast = data.weather.description;
-  this.time = new Date(data.valid_date).toDateString().slice(0, 15);
+  this.time = new Date(data.valid_date).toString().slice(0, 15);
 }
 
-
-function Park (data){
+function Park(data) {
   this.name = data.name;
   this.address = `"${data.addresses[0].line1}" "${data.addresses[0].city}" "${data.addresses[0].stateCode}" "${data.addresses[0].postalCode}"`;
-  this.fee = data.entranceFees[0].cost;
+  this.fee = '5.00';
   this.description = data.description;
   this.url = data.url;
 }
