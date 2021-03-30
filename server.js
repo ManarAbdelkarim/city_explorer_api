@@ -5,19 +5,22 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const superAgent = require('superagent');
-
+// const Joi = require('joi');
 
 //Application Setup
-const PORT = process.env.PORT || 3030;
+const PORT = process.env.PORT || 3002;
 const app = express();
 app.use(cors());
+const db_url = process.env.DATABASE_URL;
+// DataBase connection
+const pg  = require('pg');
+const client = new pg.Client(db_url);
 
 let city;
 app.get('/location', locationRoute);
 function locationRoute(req, res) {
   // const locData = require('./data/location.json');
   city = req.query.city;
-  // let key = process.env.GEO_CODE_API_KEY;
   // let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
   const url = 'https://eu1.locationiq.com/v1/search.php';
   const query = {
@@ -27,19 +30,71 @@ function locationRoute(req, res) {
     city: city,
     format: 'json'
   }
-  // console.log(query);
   if (!city) {
     res.status(500).send('Status 500 : sorry , something went wrong');
   }
-  superAgent.get(url).query(query)
-    .then(location => {
-      const locObj = new Location(city, location.body[0]);
-      res.send(locObj);
-    }).catch((error) => {
-      console.error('ERROR',error);
-      req.status(500).send('no Location ya boy');
-    })
+  const sqlQuery = `SELECT * FROM locations WHERE search_query = '${city}';`;
+  client.query(sqlQuery).then(data => {
+    console.log(data);
+    if (data.rows.length === 0) {
+      superAgent.get(url).query(query).then(location => {
+        const locObj = new Location(city, location.body[0]);
+        const insertInto = `INSERT INTO locations
+      (search_query, formatted_query, latitude, longitude)
+      VALUES ($1,$2,$3,$4);`;
+        let values = [city, locObj.formatted_query, locObj.latitude, locObj.longitude];
+
+        client.query(insertInto, values)
+          .then(() => {
+            res.status(200).json(locObj);
+          })
+      }).catch((error) => {
+        console.error('ERROR',error);
+        req.status(500).send('no Location ya boy');
+      });
+    }
+    else if (data.rows[0].search_query === city) {
+    // get data from DB
+      //  selectSQL = `SELECT * FROM city WHERE search_query=$1`;
+      const newDb = new Location(data.rows[0].search_query, data.rows[0]);
+      res.send(newDb);
+    }
+  }).catch((error) => {
+    console.error('ERROR',error);
+    req.status(500).send('no weather ya boy');
+  });
+
 }
+
+// let city;
+// app.get('/location', locationRoute);
+// function locationRoute(req, res) {
+// const locData = require('./data/location.json');
+// city = req.query.city;
+// let key = process.env.GEO_CODE_API_KEY;
+// let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
+// const url = 'https://eu1.locationiq.com/v1/search.php';
+//   const query = {
+//     key : process.env.GEO_CODE_API_KEY,
+//     lat : req.query.latitude,
+//     lon: req.query.longitude,
+//     city: city,
+//     format: 'json'
+//   }
+//   // console.log(query);
+//   if (!city) {
+//     res.status(500).send('Status 500 : sorry , something went wrong');
+//   }
+//   superAgent.get(url).query(query)
+//     .then(location => {
+//       const locObj = new Location(city, location.body[0]);
+//       res.send(locObj);
+//     }).catch((error) => {
+//       console.error('ERROR',error);
+//       req.status(500).send('no Location ya boy');
+//     })
+
+// }
 
 app.get('/weather', weatherRoute);
 function weatherRoute(req, res) {
@@ -99,6 +154,7 @@ function Location(city, data) {
 function Weather(data) {
   this.forecast = data.weather.description;
   this.time = new Date(data.valid_date).toString().slice(0, 15);
+
 }
 
 function Park(data) {
@@ -110,5 +166,8 @@ function Park(data) {
 }
 
 
-app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
-
+client.connect().then(() =>{
+  // console.log('connect to database ' , client.connectionParameter.database)
+  console.log('my database is ', client.database);
+  app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
+});
