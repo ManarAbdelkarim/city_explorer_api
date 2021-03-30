@@ -6,6 +6,7 @@ const cors = require('cors');
 require('dotenv').config();
 const superAgent = require('superagent');
 // const Joi = require('joi');
+
 //Application Setup
 const PORT = process.env.PORT || 3030;
 const app = express();
@@ -61,6 +62,35 @@ function locationRoute(req, res) {
     console.error('ERROR',error);
     req.status(500).send('no weather ya boy');
   });
+
+
+let city;
+app.get('/location', locationRoute);
+function locationRoute(req, res) {
+  // const locData = require('./data/location.json');
+  city = req.query.city;
+  // let key = process.env.GEO_CODE_API_KEY;
+  // let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
+  const url = 'https://eu1.locationiq.com/v1/search.php';
+  const query = {
+    key : process.env.GEO_CODE_API_KEY,
+    lat : req.query.latitude,
+    lon: req.query.longitude,
+    city: city,
+    format: 'json'
+  }
+  // console.log(query);
+  if (!city) {
+    res.status(500).send('Status 500 : sorry , something went wrong');
+  }
+  superAgent.get(url).query(query)
+    .then(location => {
+      const locObj = new Location(city, location.body[0]);
+      res.send(locObj);
+    }).catch((error) => {
+      console.error('ERROR',error);
+      req.status(500).send('no Location ya boy');
+    })
 
 }
 
@@ -122,6 +152,7 @@ function Location(city, data) {
 function Weather(data) {
   this.forecast = data.weather.description;
   this.time = new Date(data.valid_date).toString().slice(0, 15);
+
 }
 
 function Park(data) {
@@ -137,3 +168,16 @@ client.connect().then(() =>{
   // console.log('connect to database ' , client.connectionParameter.database)
   app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
 });
+
+}
+
+function Park(data) {
+  this.name = data.name;
+  this.address = `"${data.addresses[0].line1}" "${data.addresses[0].city}" "${data.addresses[0].stateCode}" "${data.addresses[0].postalCode}"`;
+  this.fee =data.fees[0] || '5.00';
+  this.description = data.description;
+  this.url = data.url;
+}
+
+
+app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
