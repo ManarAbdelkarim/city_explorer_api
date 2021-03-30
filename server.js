@@ -19,7 +19,7 @@ function locationRoute(req, res) {
   city = req.query.city;
   // let key = process.env.GEO_CODE_API_KEY;
   // let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
-  let url = 'https://eu1.locationiq.com/v1/search.php';
+  const url = 'https://eu1.locationiq.com/v1/search.php';
   const query = {
     key : process.env.GEO_CODE_API_KEY,
     lat : req.query.latitude,
@@ -53,7 +53,7 @@ function weatherRoute(req, res) {
 
   superAgent.get(url).query(query)
     .then(weather => {
-      let weatherArr = weather.body.data.map(val => new Weather(val));
+      const weatherArr = weather.body.data.map(val => new Weather(val));
       res.send(weatherArr);
       console.log(weatherArr);
     })
@@ -67,10 +67,16 @@ function weatherRoute(req, res) {
 app.get('/parks', parksRoute);
 function parksRoute(req, res) {
   // console.log(req.query);
-  let code = req.query.latitude + ',' + req.query.longitude;
-  let key = process.env.PARK_CODE_API_KEY;
-  let url = `https://developer.nps.gov/api/v1/parks?parkCode=${code}&api_key=${key}`;
-  superAgent.get(url).then(parkData => {
+  // const code = req.query.latitude + ',' + req.query.longitude;
+  const key = process.env.PARK_CODE_API_KEY;
+  const url = 'https://developer.nps.gov/api/v1/parks';
+  const query = {
+    q:city,
+    parkCode: req.query.parkCode,
+    api_key:key,
+    limit :10
+  }
+  superAgent.get(url).query(query).then(parkData => {
     // console.log(parkData.body.data[0].entranceFees[0].cost);
     let parkArr = parkData.body.data.map(val => new Park(val));
     res.send(parkArr);
