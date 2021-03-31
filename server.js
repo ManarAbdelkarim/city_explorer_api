@@ -35,10 +35,11 @@ function locationRoute(req, res) {
   }
   const sqlQuery = `SELECT * FROM locations WHERE search_query = '${city}';`;
   client.query(sqlQuery).then(data => {
-    console.log(data);
+    // console.log('the data from here', data);
+
     if (data.rows.length === 0) {
       superAgent.get(url).query(query).then(location => {
-        const locObj = new Location(city, location.body[0]);
+        let locObj = new Location(city, location.body[0]);
         const insertInto = `INSERT INTO locations
       (search_query, formatted_query, latitude, longitude)
       VALUES ($1,$2,$3,$4);`;
@@ -55,9 +56,9 @@ function locationRoute(req, res) {
     }
     else if (data.rows[0].search_query === city) {
     // get data from DB
-      //  selectSQL = `SELECT * FROM city WHERE search_query=$1`;
-      const newDb = new Location(data.rows[0].search_query, data.rows[0]);
-      res.send(newDb);
+      console.log('they are equal' ,data.rows[0]);
+      // const newDb = new Location(data.rows[0].search_query, data.rows[0]);
+      res.status(200).json(data.rows[0]);
     }
   }).catch((error) => {
     console.error('ERROR',error);
@@ -110,7 +111,7 @@ function weatherRoute(req, res) {
     .then(weather => {
       const weatherArr = weather.body.data.map(val => new Weather(val));
       res.send(weatherArr);
-      console.log(weatherArr);
+      // console.log(weatherArr);
     })
     .catch((error) => {
       console.error('ERROR',error);
