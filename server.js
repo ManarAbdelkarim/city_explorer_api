@@ -11,10 +11,16 @@ const superAgent = require('superagent');
 const PORT = process.env.PORT || 3002;
 const app = express();
 app.use(cors());
-const db_url = process.env.DATABASE_URL;
+const DATABASE_URL = process.env.DATABASE_URL;
 // DataBase connection
 const pg  = require('pg');
-const client = new pg.Client(db_url);
+// const client = new pg.Client(db_url);
+const client = new pg.Client({
+  connectionString: DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 let city;
 app.get('/location', locationRoute);
@@ -67,35 +73,27 @@ function locationRoute(req, res) {
 
 }
 
-// let city;
-// app.get('/location', locationRoute);
-// function locationRoute(req, res) {
-// const locData = require('./data/location.json');
-// city = req.query.city;
-// let key = process.env.GEO_CODE_API_KEY;
-// let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
-// const url = 'https://eu1.locationiq.com/v1/search.php';
+
+//  https://api.themoviedb.org/3/search/multi?api_key=${key}&language=en-US&query=${city}&include_adult=false
+
+// app.get('/movies' , moviesRoute);
+// function moviesRoute (req,res){
+//   const key = process.env.MOVIE_API_KEY;
+//   const url = 'https://api.themoviedb.org/3/search/multi';
 //   const query = {
-//     key : process.env.GEO_CODE_API_KEY,
-//     lat : req.query.latitude,
-//     lon: req.query.longitude,
-//     city: city,
-//     format: 'json'
+//     api_key : key,
+//     language: 'en-US',
+//     query: city ,
+//     include_adult : false
 //   }
-//   // console.log(query);
-//   if (!city) {
-//     res.status(500).send('Status 500 : sorry , something went wrong');
-//   }
-//   superAgent.get(url).query(query)
-//     .then(location => {
-//       const locObj = new Location(city, location.body[0]);
-//       res.send(locObj);
-//     }).catch((error) => {
-//       console.error('ERROR',error);
-//       req.status(500).send('no Location ya boy');
-//     })
 
 // }
+
+
+
+
+
+
 
 app.get('/weather', weatherRoute);
 function weatherRoute(req, res) {
