@@ -1,44 +1,33 @@
 'use strict';
-
 // Dependencies
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const superAgent = require('superagent');
-// const Joi = require('joi');
 
 //Application Setup
 const PORT = process.env.PORT || 3002;
 const app = express();
 app.use(cors());
 // DataBase connection
-// const db_url = process.env.DATABASE_URL;
 const DATABASE_URL = process.env.DATABASE_URL;
 
-
-// }).catch(error =>{
-
-// });
 let client;
 const pg  = require('pg');
-try {
-  client = new pg.Client({
-    connectionString: DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
-    }
-  })
-}
-catch (e) {
-  client = new pg.Client(DATABASE_URL);
-}
+client = new pg.Client({
+  connectionString: DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+})
+
 
 let city;
-app.get('/location', locationRoute);
-function locationRoute(req, res) {
+
+const locationRoute = (req, res) => {
   // const locData = require('./data/location.json');
   city = req.query.city;
-  // let url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
+  // const url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
   const url = 'https://eu1.locationiq.com/v1/search.php';
   const query = {
     key : process.env.GEO_CODE_API_KEY,
@@ -66,48 +55,57 @@ function locationRoute(req, res) {
           .then(() => {
             res.status(200).json(locObj);
           })
-      }).catch((error) => {
-        console.error('ERROR',error);
-        req.status(500).send('no Location ya boy');
+      }).catch(() => {
+        handleErrors('there is no Location ya bo', req, res)
+
       });
     }
     else if (data.rows[0].search_query === city) {
     // get data from DB
       console.log('they are equal' ,data.rows[0]);
-      // const newDb = new Location(data.rows[0].search_query, data.rows[0]);
       res.status(200).json(data.rows[0]);
     }
-  }).catch((error) => {
-    console.error('ERROR',error);
-    req.status(500).send('no weather ya boy');
+  }).catch(() => {
+    handleErrors('there is no weather ya boy', req, res);
   });
 
-}
+};
+app.get('/location', locationRoute);
 
 
 
-app.get('/movies' , moviesRoute);
-function moviesRoute (req,res){
+
+const moviesRoute = (req, res) => {
   const key = process.env.MOVIE_API_KEY;
   const url = 'https://api.themoviedb.org/3/search/multi';
+  // const url = 'https://api.themoviedb.org/3/search';
+
   const query = {
     api_key : key,
     language: 'en-US',
     query: city ,
-    include_adult : false
+    include_adult : false,
+    page :1,
+    sort_by: 'popularity.desc'
   }
 
-}
+  // https://api.themoviedb.org/3/search/movie?api_key=${MOVIE_API_KEY}&query=${searchQuery}&page=1&sort_by=popularity.desc&include_adult=false
+  superAgent.get(url).query(query).then(movie =>{
+    const moviesArr =movie.body.results.map(val => new Movie(val));
+    res.send(moviesArr);
+    // console.log(moviesArr);
+    req.status(200).send(moviesArr);
+
+  })
+    .catch(() => {
+      handleErrors('there is no movies here ya boy', req, res);
+    })
+
+};
+
+app.get('/movies' , moviesRoute);
 
 
-
-
-
-
-
-
-
-app.get('/weather', weatherRoute);
 function weatherRoute(req, res) {
   // let city = req.query.search_query;
   let key = process.env.WEATHER_CODE_API_KEY;
@@ -123,14 +121,14 @@ function weatherRoute(req, res) {
       res.send(weatherArr);
       // console.log(weatherArr);
     })
-    .catch((error) => {
-      console.error('ERROR',error);
-      req.status(500).send('no weather ya boy');
+    .catch(() => {
+      handleErrors('there is no weather here ya boy', req, res);
     })
 }
 
+app.get('/weather', weatherRoute);
 
-app.get('/parks', parksRoute);
+
 function parksRoute(req, res) {
   // console.log(req.query);
   // const code = req.query.latitude + ',' + req.query.longitude;
@@ -146,14 +144,14 @@ function parksRoute(req, res) {
     // console.log(parkData.body.data[0].entranceFees[0].cost);
     let parkArr = parkData.body.data.map(val => new Park(val));
     res.send(parkArr);
-  }).catch((error) => {
-    console.error('ERROR',error);
-    req.status(500).send('no parks ya boy');
-  })
+  }).catch(() => {
+    handleErrors('there is no parks here ya boy', req, res);
+  });
 }
 
+app.get('/parks', parksRoute);
 
-
+// objects
 
 function Location(city, data) {
   this.search_query = city;
@@ -176,18 +174,28 @@ function Park(data) {
   this.url = data.url;
 }
 
-// function Movie(data){
+let movieCount = 1;
+function Movie(data) {
+  this.title = `${movieCount} ${data.title}`;
+  this.overview = data.overview;
+  this.average_votes = data.vote_average;
+  this.total_votes = data.vote_count;
+  this.image_url = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
+  this.popularity = data.popularity;
+  this.released_on = data.release_date;
+  movieCount ++;
+}
 
-//   this.title: data.title,
-//   "overview": "A young boy who tries to set his dad up on a date after the death of his mother. He calls into a radio station to talk about his dad’s loneliness which soon leads the dad into meeting a Journalist Annie who flies to Seattle to write a story about the boy and his dad. Yet Annie ends up with more than just a story in this popular romantic comedy.",
-//   "average_votes": "6.60",
-//   "total_votes": "881",
-//   "image_url": "https://image.tmdb.org/t/p/w500/afkYP15OeUOD0tFEmj6VvejuOcz.jpg",
-//   "popularity": "8.2340",
-//   "released_on": "1993-06-24"
-// }
+
+function handleErrors(error, req, res) {
+  const errObj = {
+    status: '500',
+    responseText: error
+  }
+  res.status(500).send(errObj);
+}
+
 client.connect().then(() =>{
-  // console.log('connect to database ' , client.connectionParameter.database)
   console.log('my database is ', client.database);
   app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
 });
