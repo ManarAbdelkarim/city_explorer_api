@@ -16,12 +16,12 @@ app.use(cors());
 const DATABASE_URL = process.env.DATABASE_URL;
 
 const pg  = require('pg');
-const client = new pg.Client(DATABASE_URL) ||new pg.Client({
+let client = new pg.Client({
   connectionString: DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
-});
+}) || new pg.Client(DATABASE_URL);
 
 let city;
 app.get('/location', locationRoute);
