@@ -9,25 +9,30 @@ const superAgent = require('superagent');
 const PORT = process.env.PORT || 3002;
 const app = express();
 app.use(cors());
+
 // DataBase connection
 const DATABASE_URL = process.env.DATABASE_URL;
-
-let client;
 const pg  = require('pg');
-client = new pg.Client({
+const client = new pg.Client({
   connectionString: DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
   }
-})
+});
 
+
+
+
+
+
+// API ROUTING START
+const homeRout = (req, res) => {
+  res.send('all good nothing to see here!');
+};
 
 let city;
-
 const locationRoute = (req, res) => {
-  // const locData = require('./data/location.json');
   city = req.query.city;
-  // const url = `https://eu1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
   const url = 'https://eu1.locationiq.com/v1/search.php';
   const query = {
     key : process.env.GEO_CODE_API_KEY,
@@ -40,37 +45,36 @@ const locationRoute = (req, res) => {
     res.status(500).send('Status 500 : sorry , something went wrong');
   }
   const sqlQuery = `SELECT * FROM locations WHERE search_query = '${city}';`;
-  client.query(sqlQuery).then(data => {
-    // console.log('the data from here', data);
-
-    if (data.rows.length === 0) {
-      superAgent.get(url).query(query).then(location => {
-        let locObj = new Location(city, location.body[0]);
-        const insertInto = `INSERT INTO locations
+  client.query(sqlQuery)
+    .then(data => {
+      if (data.rows.length === 0) {
+        superAgent.get(url).query(query)
+          .then(location => {
+            let locObj = new Location(city, location.body[0]);
+            const insertInto = `INSERT INTO locations
       (search_query, formatted_query, latitude, longitude)
       VALUES ($1,$2,$3,$4);`;
-        let values = [city, locObj.formatted_query, locObj.latitude, locObj.longitude];
+            let values = [city, locObj.formatted_query, locObj.latitude, locObj.longitude];
 
-        client.query(insertInto, values)
-          .then(() => {
-            res.status(200).json(locObj);
-          })
-      }).catch(() => {
-        handleErrors('there is no Location ya bo', req, res)
+            client.query(insertInto, values)
+              .then(() => {
+                res.status(200).json(locObj);
+              })
+          }).catch(() => {
+            handleErrors('there is no Location ya bo', req, res)
 
-      });
-    }
-    else if (data.rows[0].search_query === city) {
-    // get data from DB
-      console.log('they are equal' ,data.rows[0]);
-      res.status(200).json(data.rows[0]);
-    }
-  }).catch(() => {
-    handleErrors('there is no weather ya boy', req, res);
-  });
+          });
+      }
+      else if (data.rows[0].search_query === city) {
+        // get data from DB
+        console.log('they are equal' ,data.rows[0]);
+        res.status(200).json(data.rows[0]);
+      }
+    }).catch(() => {
+      handleErrors('there is no weather ya boy', req, res);
+    });
 
 };
-app.get('/location', locationRoute);
 
 
 
@@ -78,8 +82,6 @@ app.get('/location', locationRoute);
 const moviesRoute = (req, res) => {
   const key = process.env.MOVIE_API_KEY;
   const url = 'https://api.themoviedb.org/3/search/multi';
-  // const url = 'https://api.themoviedb.org/3/search';
-
   const query = {
     api_key : key,
     language: 'en-US',
@@ -88,14 +90,10 @@ const moviesRoute = (req, res) => {
     page :1,
     sort_by: 'popularity.desc'
   }
-
-  // https://api.themoviedb.org/3/search/movie?api_key=${MOVIE_API_KEY}&query=${searchQuery}&page=1&sort_by=popularity.desc&include_adult=false
   superAgent.get(url).query(query).then(movie =>{
     const moviesArr =movie.body.results.map(val => new Movie(val));
     res.send(moviesArr);
-    // console.log(moviesArr);
     req.status(200).send(moviesArr);
-
   })
     .catch(() => {
       handleErrors('there is no movies here ya boy', req, res);
@@ -103,11 +101,9 @@ const moviesRoute = (req, res) => {
 
 };
 
-app.get('/movies' , moviesRoute);
 
 
-function weatherRoute(req, res) {
-  // let city = req.query.search_query;
+const weatherRoute = (req, res) => {
   let key = process.env.WEATHER_CODE_API_KEY;
   let url = 'https://api.weatherbit.io/v2.0/forecast/daily';
   const query = {
@@ -124,14 +120,11 @@ function weatherRoute(req, res) {
     .catch(() => {
       handleErrors('there is no weather here ya boy', req, res);
     })
-}
-
-app.get('/weather', weatherRoute);
+};
 
 
-function parksRoute(req, res) {
-  // console.log(req.query);
-  // const code = req.query.latitude + ',' + req.query.longitude;
+
+const parksRoute = (req, res) => {
   const key = process.env.PARK_CODE_API_KEY;
   const url = 'https://developer.nps.gov/api/v1/parks';
   const query = {
@@ -141,17 +134,47 @@ function parksRoute(req, res) {
     limit :10
   }
   superAgent.get(url).query(query).then(parkData => {
-    // console.log(parkData.body.data[0].entranceFees[0].cost);
     let parkArr = parkData.body.data.map(val => new Park(val));
     res.send(parkArr);
   }).catch(() => {
     handleErrors('there is no parks here ya boy', req, res);
   });
-}
+};
 
+
+
+
+const yelpRoute = (req, res) => {
+  const url = 'https://api.yelp.com/v3/businesses/search'
+  const pageQ = req.query.page;
+  // const startQ = (pageQ- 1) *numPerPageQ + 1;
+  const key = process.env.YELP_API_KEY;
+  const myQuery = {
+    location : city,
+    page : pageQ,
+    query : city,
+    id: req.query.id,
+    term : 'delis'
+  }
+  // req.setRequestHeader( 'Authorization', `Bearer ${key}` );
+  superAgent.get(url).query(myQuery)
+    .set(`Authorization`, `Bearer ${key}`)
+    .then(data => {
+      let yelpArr = data.body.businesses.map(val => new Yelp(val));
+      res.send(yelpArr);
+    }).catch(() => {
+      handleErrors('there is no Yelp here ya boy ', req, res)
+    })
+};
+
+
+app.get('/location', locationRoute);
+app.get('/weather', weatherRoute);
+app.get('/movies' , moviesRoute);
 app.get('/parks', parksRoute);
-
-// objects
+app.get('/yelp', yelpRoute)
+app.get('*', homeRout)
+// OBJECTS
 
 function Location(city, data) {
   this.search_query = city;
@@ -187,6 +210,17 @@ function Movie(data) {
 }
 
 
+
+function Yelp(data) {
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
+}
+
+
+// ERROR HANDLER
 function handleErrors(error, req, res) {
   const errObj = {
     status: '500',
@@ -195,6 +229,7 @@ function handleErrors(error, req, res) {
   res.status(500).send(errObj);
 }
 
+// DB CONNECTION
 client.connect().then(() =>{
   console.log('my database is ', client.database);
   app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
