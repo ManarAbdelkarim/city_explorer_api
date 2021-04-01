@@ -1,34 +1,38 @@
 'use strict';
+
+require('dotenv').config();
+
 // Dependencies
 const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+const pg = require('pg');
 const superAgent = require('superagent');
+const cors = require('cors');
 
-//Application Setup
-const PORT = process.env.PORT || 3002;
+
+// Setup
+const PORT = process.env.PORT || 3001;
+const ENV = process.env.ENV || 'DEP';
+const DATABASE_URL = process.env.DATABASE_URL;
 const app = express();
 app.use(cors());
 
-// DataBase connection
-const DATABASE_URL = process.env.DATABASE_URL;
-const pg  = require('pg');
-const client = new pg.Client({
-  connectionString: DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+///// database connection setup
+let client = '';
+if (ENV === 'DEP') {
+  client = new pg.Client({
+    connectionString: DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
+} else {
+  client = new pg.Client({
+    connectionString: DATABASE_URL,
+  });
+}
 
 
-
-
-
-
-// API ROUTING START
-const homeRout = (req, res) => {
-  res.send('all good nothing to see here!');
-};
+// Handle Functions
 
 let city;
 const locationRoute = (req, res) => {
@@ -79,6 +83,44 @@ const locationRoute = (req, res) => {
 
 
 
+
+const weatherRoute = (req, res) => {
+  let key = process.env.WEATHER_CODE_API_KEY;
+  let url = 'https://api.weatherbit.io/v2.0/forecast/daily';
+  const query = {
+    city :city,
+    key :key
+  }
+
+  superAgent.get(url).query(query)
+    .then(weather => {
+      const weatherArr = weather.body.data.map(val => new Weather(val));
+      res.send(weatherArr);
+      // console.log(weatherArr);
+    })
+    .catch(() => {
+      handleErrors('there is no weather here ya boy', req, res);
+    })
+};
+
+
+const parksRoute = (req, res) => {
+  const key = process.env.PARK_CODE_API_KEY;
+  const url = 'https://developer.nps.gov/api/v1/parks';
+  const query = {
+    q:city,
+    parkCode: req.query.parkCode,
+    api_key:key,
+    limit :10
+  }
+  superAgent.get(url).query(query).then(parkData => {
+    let parkArr = parkData.body.data.map(val => new Park(val));
+    res.send(parkArr);
+  }).catch(() => {
+    handleErrors('there is no parks here ya boy', req, res);
+  });
+};
+
 const moviesRoute = (req, res) => {
   const key = process.env.MOVIE_API_KEY;
   const url = 'https://api.themoviedb.org/3/search/multi';
@@ -103,79 +145,45 @@ const moviesRoute = (req, res) => {
 
 
 
-const weatherRoute = (req, res) => {
-  let key = process.env.WEATHER_CODE_API_KEY;
-  let url = 'https://api.weatherbit.io/v2.0/forecast/daily';
-  const query = {
-    city :city,
-    key :key
+let yelpPreviousQuery = '';
+let offset = -5;
+function yelpRoute (req, res) {
+  const searchQuery = req.query.search_query;
+  if (searchQuery !== yelpPreviousQuery) {
+    yelpPreviousQuery = searchQuery;
+    offset = 0;
+  } else {
+    offset += 5;
   }
-
-  superAgent.get(url).query(query)
-    .then(weather => {
-      const weatherArr = weather.body.data.map(val => new Weather(val));
-      res.send(weatherArr);
-      // console.log(weatherArr);
-    })
-    .catch(() => {
-      handleErrors('there is no weather here ya boy', req, res);
-    })
-};
-
-
-
-const parksRoute = (req, res) => {
-  const key = process.env.PARK_CODE_API_KEY;
-  const url = 'https://developer.nps.gov/api/v1/parks';
-  const query = {
-    q:city,
-    parkCode: req.query.parkCode,
-    api_key:key,
-    limit :10
-  }
-  superAgent.get(url).query(query).then(parkData => {
-    let parkArr = parkData.body.data.map(val => new Park(val));
-    res.send(parkArr);
-  }).catch(() => {
-    handleErrors('there is no parks here ya boy', req, res);
-  });
-};
-
-
-
-
-const yelpRoute = (req, res) => {
-  const url = 'https://api.yelp.com/v3/businesses/search'
   const pageQ = req.query.page;
-  // const startQ = (pageQ- 1) *numPerPageQ + 1;
   const key = process.env.YELP_API_KEY;
   const myQuery = {
     location : city,
     page : pageQ,
-    query : city,
-    id: req.query.id,
-    term : 'delis'
+    term : 'restaurants',
+    limit:5,
+    offset :offset
   }
-  // req.setRequestHeader( 'Authorization', `Bearer ${key}` );
-  superAgent.get(url).query(myQuery)
-    .set(`Authorization`, `Bearer ${key}`)
-    .then(data => {
-      let yelpArr = data.body.businesses.map(val => new Yelp(val));
-      res.send(yelpArr);
-    }).catch(() => {
-      handleErrors('there is no Yelp here ya boy ', req, res)
-    })
-};
+  const url = 'https://api.yelp.com/v3/businesses/search'
+
+  if (!searchQuery) { //for empty request
+    res.status(404).send('no search query was provided');
+  }
+
+  superAgent.get(url).query(myQuery).set(`Authorization`, `Bearer ${key}`).then(data => {
+    const yelpData = data.body.businesses.map(business => {
+      return new Yelp(business);
+    });
+    res.status(200).send(yelpData);
+  }).catch(() => {
+    handleErrors('there is no Yelp here ya boy ', req, res)
+  });
+}
 
 
-app.get('/location', locationRoute);
-app.get('/weather', weatherRoute);
-app.get('/movies' , moviesRoute);
-app.get('/parks', parksRoute);
-app.get('/yelp', yelpRoute)
-app.get('*', homeRout)
-// OBJECTS
 
+
+// Constructors
 function Location(city, data) {
   this.search_query = city;
   this.formatted_query = data.display_name;
@@ -219,6 +227,23 @@ function Yelp(data) {
   this.url = data.url;
 }
 
+//////
+
+
+function handleErrorNotFound(req, res) {
+  res.status(404).send('Sorry, something went wrong');
+}
+
+
+
+
+// Endpoints
+app.get('/location', locationRoute);
+app.get('/weather',weatherRoute);
+app.get('/movies', moviesRoute);
+app.get('/parks', parksRoute);
+app.get('/yelp', yelpRoute);
+app.use('*', handleErrorNotFound);
 
 // ERROR HANDLER
 function handleErrors(error, req, res) {
@@ -228,9 +253,11 @@ function handleErrors(error, req, res) {
   }
   res.status(500).send(errObj);
 }
-
-// DB CONNECTION
-client.connect().then(() =>{
-  console.log('my database is ', client.database);
-  app.listen(PORT, () => console.log(`Listening to Port ${PORT}`));
+client.connect().then(() => {
+  app.listen(PORT, () => {
+    console.log('connected to db', client.connectionParameters.database); //show what database we are connected to
+    console.log(`Listening to Port ${PORT}`);
+  });
+}).catch(error => {
+  console.log('error', error);
 });
