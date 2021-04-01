@@ -144,39 +144,29 @@ const moviesRoute = (req, res) => {
 };
 
 
-
-let yelpPreviousQuery = '';
-let offset = -5;
 function yelpRoute (req, res) {
-  const searchQuery = req.query.search_query;
-  if (searchQuery !== yelpPreviousQuery) {
-    yelpPreviousQuery = searchQuery;
-    offset = 0;
-  } else {
-    offset += 5;
-  }
-  const pageQ = req.query.page;
+  const url = 'https://api.yelp.com/v3/businesses/search?term=restaurants&limit=5';
+  const offset = req.query.page * 5 - 5;
   const key = process.env.YELP_API_KEY;
   const myQuery = {
     location : city,
-    page : pageQ,
-    term : 'restaurants',
-    limit:5,
+    page : req.query.page,
+    query : city,
+    id: req.query.id,
     offset :offset
   }
-  const url = 'https://api.yelp.com/v3/businesses/search'
 
-  if (!searchQuery) { //for empty request
-    res.status(404).send('no search query was provided');
+  if (!city) {
+    handleErrorNotFound(req , res)
   }
 
-  superAgent.get(url).query(myQuery).set(`Authorization`, `Bearer ${key}`).then(data => {
-    const yelpData = data.body.businesses.map(business => {
+  superAgent.get(url).query(myQuery).set(`Authorization`, `Bearer ${key}`).then(resData => {
+    const data = resData.body.businesses.map(business => {
       return new Yelp(business);
     });
-    res.status(200).send(yelpData);
+    res.status(200).send(data);
   }).catch(() => {
-    handleErrors('there is no Yelp here ya boy ', req, res)
+    handleErrors('there is no yelp here ya boy', req, res);
   });
 }
 
